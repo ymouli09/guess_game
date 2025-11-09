@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Number Duel (Persistent)</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    body{font-family:sans-serif;background:#111;color:#fff;text-align:center}
+    input,button{padding:8px;margin:5px;border-radius:8px}
+    #log{background:#222;width:60%;margin:15px auto;padding:10px;border-radius:10px;text-align:left}
+  </style>
+</head>
+<body>
+<h1>🔢 Number Duel (Persistent)</h1>
+
+<div id="menu">
+  <button onclick="createRoom()">Create Room</button>
+  <input id="roomCode" placeholder="Enter Room Code">
+  <button onclick="joinRoom()">Join Room</button>
+</div>
+
+<div id="game" style="display:none;">
+  <h3>Room: <span id="room"></span> | You are <span id="role"></span></h3>
+  <div id="setup">
+    <input id="secret" maxlength="4" placeholder="Set your secret">
+    <button onclick="setSecret()">Confirm Secret</button>
+  </div>
+
+  <div id="turnArea" style="display:none;">
+    <input id="guess" maxlength="4" placeholder="Your guess">
+    <button onclick="makeGuess()">Guess</button>
+  </div>
+
+  <h4 id="status"></h4>
+  <div id="log"></div>
+</div>
+
+<script>
+const socket = io();
+let room,role;
+
+socket.on("room_created",d=>startGame(d.room,d.role));
+socket.on("room_joined",d=>startGame(d.room,d.role));
+socket.on("both_joined",()=>log("Both players connected! Set your secrets."));
+socket.on("player_left",()=>alert("Opponent left."));
+socket.on("error",d=>alert(d.msg));
+
+socket.on("state_update",g=>{
+  if(!g)return;
+  document.getElementById("turnArea").style.display=(g.turn===role && !g.winner)?"block":"none";
+  document.getElementById("status").innerText=g.winner?`🏆 Player ${g.winner} wins!`:`Turn: Player ${g.turn}`;
+  let html="";
+  g.guesses.forEach(x=>{
+    html+=`<p>${x.player} → ${x.guess} ✅${x.correct} ⚪${x.partial}</p>`;
+  });
+  document.getElementById("log").innerHTML=html;
+});
+
+function startGame(r,ro){
+  room=r; role=ro;
+  document.getElementById("menu").style.display="none";
+  document.getElementById("game").style.display="block";
+  document.getElementById("room").innerText=r;
+  document.getElementById("role").innerText=ro;
+}
+
+function createRoom(){socket.emit("create_room");}
+function joinRoom(){socket.emit("join_room",{room:document.getElementById("roomCode").value});}
+function setSecret(){socket.emit("set_secret",{room,role,secret:document.getElementById("secret").value});}
+function makeGuess(){socket.emit("make_guess",{room,role,guess:document.getElementById("guess").value});}
+function log(t){document.getElementById("log").innerHTML+="<p>"+t+"</p>";}
+</script>
+</body>
+</html>
